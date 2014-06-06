@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -19,6 +20,7 @@ public class participant {
 	private final int TIMEOUT = 20000;
 	
 	private Socket coordSocket;
+	Thread participantThread;
 	
 	private PrintWriter cOut; 
 	private BufferedReader cIn;
@@ -30,12 +32,52 @@ public class participant {
 	private long time;
 	
 	public participant(int node)
-	{
-		localLog= INIT;	
-		Thread thread = new Thread(new participantThread(node));
-		thread.start();		
+	{	
+		localLog= INIT;
+		
+		Thread participantThread = new Thread(new participantThread(node)); 
+		participantThread.start(); 
 	}
 	
+	class participantThread implements Runnable{
+
+		private Socket coordSocket;
+		PrintWriter cout;
+		InputStream cin;
+		
+		int vote;
+		
+		public participantThread(int node)
+		{
+			try {
+				coordSocket = new Socket("lisa.cs.ucsb.edu", (5000 + node));
+				System.out.println("Participant " + node + " opened socket with coordinator"); 
+				
+				cout = new PrintWriter(coordSocket.getOutputStream());
+				cin = coordSocket.getInputStream();
+				System.out.println("Initialized input/output streams for participant " + node); 
+			} catch (Exception e) {
+				System.out.println("Participant " + node + "failed to open socket :("); 
+			}
+			
+		}
+		
+		@Override
+		public void run() {
+			//while(true)
+			{			
+				try {
+					while((vote = cin.read()) == -1);
+					System.out.println("vote is " + vote); 
+				} catch (Exception e) {
+					System.out.println("Failed to read vote :("); 
+				} 
+			}
+			
+		}		
+	}
+	
+		
 	public void participate()
 	{		
 		time = System.currentTimeMillis();
@@ -88,39 +130,7 @@ public class participant {
 		}
 	}
 	
-	class participantThread implements Runnable{
-
-		public participantThread(int node)
-		{
-			//Initialize socket, writer, and reader
-			try{
-				if(node == 1)
-				{
-					coordSocket = new Socket("lisa.cs.ucsb.edu", 5000);	
-				}
-				else
-				{
-					coordSocket = new Socket("lisa.cs.ucsb.edu", 5001);	
-				}
-				System.out.println("Participant opened socket with coordinator"); 
-				
-				cOut = new PrintWriter(coordSocket.getOutputStream(), true);					
-				cIn = new BufferedReader(new InputStreamReader(coordSocket.getInputStream()));
-				
-			} catch(Exception e)
-			{
-				System.out.println("Failed to open socket :("); 
-			}
-		}
-		
-		@Override
-		public void run() {
-			
-			participate();
-			
-		}
-		
-	}
+	
 	
 
 }

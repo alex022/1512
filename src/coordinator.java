@@ -1,6 +1,5 @@
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -17,32 +16,73 @@ public class coordinator {
 	
 	private final int TIMEOUT = 20000;
 	
-	private ServerSocket fParticipant;	
-	private ServerSocket sParticipant;
-	private Socket p1;
-	private Socket p2; 
+	Thread participant1;	
+	Thread participant2;
 	
 	private PrintWriter fOut;
 	private PrintWriter sOut; 
-	private BufferedReader fIn;
-	private BufferedReader sIn;
+	private InputStream fIn;
+	private InputStream sIn;
 	
-	private int votes[];
-	private int localLog;
+	private static int vote1, vote2;
+	private static int localLog;
 	
-	private long time;
-	
+	private long time;	
 	
 	public coordinator()
 	{
 		localLog= START_2PC;
-		votes = new int[2];
-		votes[0] = 0; votes[1] = 0;
+		vote1 = vote2 = 0;
 		
-		Thread thread = new Thread(new coordinatorThread());
-		thread.start();
+		participant1 = new Thread(new coordinatorThread(1));		
+		participant2 = new Thread(new coordinatorThread(2));
+		participant1.start();
+		participant2.start();
 	}
+	
+	class coordinatorThread implements Runnable
+	{
+		ServerSocket serverSocket;
+		Socket socket;
+		PrintWriter out;
+		InputStream in; 
+		int node;
 		
+		
+		public coordinatorThread(int node)
+		{
+			this.node = node;
+			
+			try {
+				serverSocket = new ServerSocket(5000 + node);
+				System.out.println("Waiting for participant " + node + " to connect...");
+				socket = serverSocket.accept();
+				System.out.println("Participant " + node + " has connected");
+				
+				out = new PrintWriter(socket.getOutputStream());
+				in = socket.getInputStream();
+				System.out.println("Initialized input/output streams for participant " + node); 
+			} catch (Exception e) {
+				e.printStackTrace();
+			} 
+		}
+		
+		@Override
+		public void run() {
+			while(localLog == START_2PC)
+			{
+									
+					out.write(VOTE_REQUEST);
+				
+				 
+				System.out.println("Coordinator sent VOTE_REQUEST to participant " + node);
+			}
+			
+		}
+	}
+
+	
+	
 	public void coordinate() throws IOException
 	{
 		while(localLog == START_2PC)
@@ -55,11 +95,11 @@ public class coordinator {
 			time = System.currentTimeMillis(); 
 			
 			//Wait for all votes to be collected
-			while(votes[0] == 0 && votes[1] == 0)
+			while(vote1 == 0 && vote2 == 0)
 			{		
 				System.out.println("Coordinator is reading votes from participants");
-				votes[0] = fIn.read(); 
-				votes[1] = sIn.read();
+				vote1 = fIn.read(); 
+				vote2 = sIn.read();
 				System.out.println("Finished reading votes from participants"); 
 				
 				//If loop times out, record and broadcast global abort and exit
@@ -74,7 +114,7 @@ public class coordinator {
 			}
 			
 			//Check votes from participants and either commit or abort
-			if((votes[0] == VOTE_COMMIT) && (votes[1] == VOTE_COMMIT))
+			if((vote1 == VOTE_COMMIT) && (vote2 == VOTE_COMMIT))
 			{
 				System.out.println("Coordinator received VOTE_COMMIT from two participants, multicasting GLOBAL_COMMIT"); 
 				localLog = GLOBAL_COMMIT;
@@ -90,43 +130,10 @@ public class coordinator {
 			}
 		}
 	}
-	
-	class coordinatorThread implements Runnable
-	{
-		public coordinatorThread()
-		{
-			//Initialize sockets, writers, and readersr
-			try{
-				fParticipant = new ServerSocket(5000);
-				sParticipant = new ServerSocket(5001);
-				
-				System.out.println("Waiting for participants to connect..."); 
-				
-				p1 = fParticipant.accept();
-				System.out.println("Initialized first participant socket");
-				p2 = sParticipant.accept();
-				System.out.println("Initialized second participant socket"); 					
-				
-				fOut = new PrintWriter(p1.getOutputStream(), true);
-				sOut = new PrintWriter(p2.getOutputStream(), true);
-				
-				fIn = new BufferedReader(new InputStreamReader(p1.getInputStream()));
-				sIn = new BufferedReader(new InputStreamReader(p2.getInputStream()));
-			} catch(Exception e)
-			{
-				System.out.println("Failed to open socket"); 
-			}
-		}
 
-		@Override
-		public void run() {
-			try {
-				coordinate();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}			
-		}
-		
-	}
+
+
+	
+	
+	
 }

@@ -3,7 +3,7 @@ import java.net.UnknownHostException;
 
 public class main {	
 	
-	public static void main(String args[]) throws UnknownHostException, IOException
+	public static void main(String args[]) 
 	{	
 		coordinator coord;
 		participant p1, p2;
@@ -22,7 +22,7 @@ public class main {
 		else
 		{
 			p2 = new participant(nodeNum);
-		}
-				
+		}				
+		
 	}	
 }
